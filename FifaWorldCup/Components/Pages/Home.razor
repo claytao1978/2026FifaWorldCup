@@ -1,0 +1,202 @@
+﻿@page "/"
+@attribute [StreamRendering]
+@rendermode InteractiveServer
+
+
+<PageTitle>
+	FIFA World Cup 2026
+</PageTitle>
+
+@if (matches == null)
+{
+	<p>Loading...</p>
+}
+else
+{
+	<div class="row">
+		<div class="col text-center">
+			<h1>FIFA World Cup 2026</h1>
+		</div>
+	</div>
+	<div class="col">
+		<button class="btn btn-primary" @onclick="IncrementCount">Refresh</button>
+	</div>
+	<div class="col">
+		<div class="row">
+			<table class="table">
+				<tbody>
+					<tr>
+						<td width="600">
+							<table class="table">
+								<thead>
+									<tr>
+										<th width="140" scope="col">Home Team</th>
+										<th width="10" scope="col"></th>
+										<th width="10" scope="col"></th>
+										<th width="10" scope="col"></th>
+										<th width="140" scope="col">Away Team</th>
+										<th width="120" scope="col">Time Elapsed</th>
+									</tr>
+								</thead>
+								<tbody>
+									@foreach (var item in matches)
+									{
+										@if (!item.IsFinished)
+										{
+											<tr>
+												<td>@item.Team1.Name</td>
+												<td>@item.Team1Score</td>
+												<td>X</td>
+												<td>@item.Team2Score</td>
+												<td>@item.Team2.Name</td>
+												<td align="center">
+													@if (item.IsFinished)
+													{
+														<a>90""</a>
+													}
+													else
+													{
+														<a>@item.TimeElapsed"</a>
+													}
+												</td>
+											</tr>
+										}
+									}
+
+								</tbody>
+							</table>
+						</td>
+						<td>
+							<table class="table">
+								<thead>
+									<tr>
+										<th width="120" scope="col">Team</th>
+										<th width="10" scope="col">Points</th>
+									</tr>
+								</thead>
+								<tbody>
+									@foreach (var item in allteams)
+									{
+										<tr>
+											<td>@item.Name</td>
+											<td>@item.Points</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</div>
+}
+
+@code {
+	public IEnumerable<Match> matches = null!;
+	public IEnumerable<Team> teams1 = null!;
+	public IEnumerable<Team> teams2 = null!;
+	public IEnumerable<Team> allteams = null!;
+
+	private void IncrementCount()
+	{
+		RefreshMatches();
+	}
+
+	protected override async Task OnInitializedAsync()
+	{
+		await Task.Delay(500);
+
+		matches = new List<Match>()
+		{
+			new(1,new Team(1,"Colombia",0), new Team(5,"Germany",0), 0, 0,0,false),
+			new(2,new Team(2,"Brazil",0), new Team(6,"China",0), 0, 0, 0,false),
+			new(3,new Team(3,"Spain",0), new Team(7,"England",0), 0, 0, 0,false),
+			new(4,new Team(4,"Mexico",0), new Team(8,"Sweeden",0), 0, 0, 0,false),
+		};
+
+		teams1 = from x in matches
+					select x.Team1;
+		teams2 = from x in matches
+					select x.Team2;
+
+		List<Team> teams = teams1.Concat(teams2).ToList();
+		allteams = teams;
+	}
+
+
+	private void RefreshMatches()
+	{
+		matches = matches.Select(match =>
+		{
+			if (match.Team1Score < 3 && !match.IsFinished)
+				match.Team1Score += new Random().Next(0, 2);
+			else
+				match.Team1Score = match.Team1Score;
+
+			if (match.Team2Score < 3 && !match.IsFinished)
+				match.Team2Score += new Random().Next(0, 3);
+			else
+				match.Team1Score = match.Team1Score;
+			match.TimeElapsed += match.TimeElapsed + new Random().Next(5, 10);
+			return match;
+		}).ToList();
+
+		matches = from x in matches
+						orderby x.Team1Score + x.Team2Score descending
+						select x;
+
+		matches = matches.Select(match =>
+		{
+			if (match.TimeElapsed >= 90 && !match.IsFinished)
+			{
+				FinalizeMatch(match);
+			}
+
+			return match;
+		}).ToList();
+	}
+
+	private void FinalizeMatch(Match match)
+	{
+		match.IsFinished = true;
+		SumarizePoints(match);
+	}
+
+	private void SumarizePoints(Match match)
+	{
+		int scoreteam1 = match.Team1Score;
+		int scoreteam2 = match.Team2Score;
+
+		if (scoreteam1 == scoreteam2)
+		{
+			match.Team1.Points += 1;
+			match.Team2.Points += 1;
+		}
+		else if (scoreteam1 > scoreteam2)
+		{
+			match.Team1.Points += 3;
+		}
+		else if (scoreteam1 < scoreteam2)
+		{
+			match.Team2.Points += 3;
+		}
+
+		foreach (Team team in allteams)
+		{
+			if (team.ID == match.Team1.ID)
+			{
+				team.Points = match.Team1.Points;
+			}
+			else if (team.ID == match.Team2.ID)
+			{
+				team.Points = match.Team2.Points;
+			}
+		}
+
+		allteams = from x in allteams
+							orderby x.Points descending
+							select x;
+	}
+
+}
