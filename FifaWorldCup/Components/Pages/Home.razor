@@ -2,6 +2,12 @@
 @attribute [StreamRendering]
 @rendermode InteractiveServer
 
+<script>	
+	setInterval(() => {
+		document.getElementById("btnRefresh").click();
+	},7000);
+
+</script>
 
 <PageTitle>
 	FIFA World Cup 2026
@@ -19,7 +25,7 @@ else
 		</div>
 	</div>
 	<div class="col">
-		<button class="btn btn-primary" @onclick="IncrementCount">Refresh</button>
+		<button id="btnRefresh" hidden="hidden" class="btn btn-primary" @onclick="RefreshMatches">Refresh</button>
 	</div>
 	<div class="col">
 		<div class="row">
@@ -98,14 +104,9 @@ else
 	public IEnumerable<Team> teams2 = null!;
 	public IEnumerable<Team> allteams = null!;
 
-	private void IncrementCount()
-	{
-		RefreshMatches();
-	}
-
 	protected override async Task OnInitializedAsync()
 	{
-		await Task.Delay(500);
+		await Task.Yield();
 
 		matches = new List<Match>()
 		{
@@ -120,31 +121,26 @@ else
 		teams2 = from x in matches
 					select x.Team2;
 
-		List<Team> teams = teams1.Concat(teams2).ToList();
-		allteams = teams;
+		allteams = teams1.Concat(teams2).ToList();
 	}
-
-
+	[JSInvokable]
 	private void RefreshMatches()
 	{
 		matches = matches.Select(match =>
 		{
-			if (match.Team1Score < 3 && !match.IsFinished)
+			if (!match.IsFinished)
+			{
 				match.Team1Score += new Random().Next(0, 2);
-			else
-				match.Team1Score = match.Team1Score;
-
-			if (match.Team2Score < 3 && !match.IsFinished)
-				match.Team2Score += new Random().Next(0, 3);
-			else
-				match.Team1Score = match.Team1Score;
-			match.TimeElapsed += match.TimeElapsed + new Random().Next(5, 10);
+				match.Team2Score += new Random().Next(0, 2);
+				match.TimeElapsed += match.TimeElapsed + new Random().Next(0, 7);
+			}											
 			return match;
 		}).ToList();
 
-		matches = from x in matches
-						orderby x.Team1Score + x.Team2Score descending
-						select x;
+		matches = matches
+			.OrderByDescending(m => m.Team1Score == m.Team2Score)
+			.ThenByDescending(m => m.Team1Score + m.Team2Score) 
+			.ToList();
 
 		matches = matches.Select(match =>
 		{
@@ -155,6 +151,7 @@ else
 
 			return match;
 		}).ToList();
+		InvokeAsync(StateHasChanged);
 	}
 
 	private void FinalizeMatch(Match match)
@@ -165,19 +162,16 @@ else
 
 	private void SumarizePoints(Match match)
 	{
-		int scoreteam1 = match.Team1Score;
-		int scoreteam2 = match.Team2Score;
-
-		if (scoreteam1 == scoreteam2)
+		if (match.Team1Score == match.Team2Score)
 		{
 			match.Team1.Points += 1;
 			match.Team2.Points += 1;
 		}
-		else if (scoreteam1 > scoreteam2)
+		else if (match.Team1Score > match.Team2Score)
 		{
 			match.Team1.Points += 3;
 		}
-		else if (scoreteam1 < scoreteam2)
+		else if (match.Team1Score < match.Team2Score)
 		{
 			match.Team2.Points += 3;
 		}
@@ -200,3 +194,4 @@ else
 	}
 
 }
+
